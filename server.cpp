@@ -9,6 +9,7 @@
 #include <nlohmann/json.hpp>
 
 #include "request_handler.hpp"
+#include "auth.hpp"
 
 using json = nlohmann::json;
 
@@ -18,6 +19,7 @@ std::mutex tasks_mutex;
 void handle_client(int client_fd) {
     bool logged_in = false;
     std::string logged_username;
+    std::string logged_role;
 
     while (true) {
         char buffer[4096];
@@ -46,6 +48,7 @@ void handle_client(int client_fd) {
                 request,
                 logged_in,
                 logged_username,
+                logged_role,
                 should_disconnect,
                 users_mutex,
                 tasks_mutex
@@ -74,6 +77,9 @@ void handle_client(int client_fd) {
 }
 
 int main() {
+    json admin_init = ensure_admin_exists(users_mutex);
+    std::cout << admin_init["message"] << "\n";
+
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
         std::cerr << "socket() failed\n";

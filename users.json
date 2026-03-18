@@ -1,20 +1,14 @@
 {
     "users": [
         {
-            "password": "123123123",
-            "username": "georgi"
+            "password_hash": "3b612c75a7b5048a435fb6ec81e52ff92d6d795a8b5a9c17070f6a63c97a53b2",
+            "role": "admin",
+            "username": "admin"
         },
         {
-            "password": "ggsfds",
-            "username": "lana"
-        },
-        {
-            "password": "Abcd1234",
-            "username": "ivan"
-        },
-        {
-            "password": "Maria123",
-            "username": "Maria"
+            "password_hash": "a59cfe17a703b247e361155b3f6f3798457f49e49ab4169f5b3deeed011ca40d",
+            "role": "user",
+            "username": "Isad"
         }
     ]
 }

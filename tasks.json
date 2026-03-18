@@ -1,5 +1,4 @@
 {
-    "user_tasks": [],
     "users_tasks": [
         {
             "active_tasks": [],
@@ -8,16 +7,7 @@
                 "create_invoice",
                 "approve_request"
             ],
-            "username": "ivan"
-        },
-        {
-            "active_tasks": [],
-            "available_tasks": [
-                "read_reports",
-                "create_invoice",
-                "approve_request"
-            ],
-            "username": "Maria"
+            "username": "Isad"
         }
     ]
 }
