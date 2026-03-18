@@ -1,12 +1,13 @@
-#include "tasks.hpp"
-#include "json_utils.hpp"
-#include "task_executor.hpp"
+#include "tasks/tasks.hpp"
+#include "common/json_utils.hpp"
+#include "tasks/task_executor.hpp"
+
 #include <algorithm>
 
 json list_available_tasks(const std::string& username, std::mutex& tasks_mutex) {
     std::lock_guard<std::mutex> lock(tasks_mutex);
 
-    json data = load_json_or_default("tasks.json", {
+    json data = load_json_or_default("data/tasks.json", {
         {"users_tasks", json::array()}
     });
 
@@ -35,7 +36,7 @@ json list_available_tasks(const std::string& username, std::mutex& tasks_mutex) 
 json list_active_tasks(const std::string& username, std::mutex& tasks_mutex) {
     std::lock_guard<std::mutex> lock(tasks_mutex);
 
-    json data = load_json_or_default("tasks.json", {
+    json data = load_json_or_default("data/tasks.json", {
         {"users_tasks", json::array()}
     });
 
@@ -64,7 +65,7 @@ json list_active_tasks(const std::string& username, std::mutex& tasks_mutex) {
 json add_task_to_user(const std::string& username, const std::string& task_name, std::mutex& tasks_mutex) {
     std::lock_guard<std::mutex> lock(tasks_mutex);
 
-    json data = load_json_or_default("tasks.json", {
+    json data = load_json_or_default("data/tasks.json", {
         {"users_tasks", json::array()}
     });
 
@@ -106,7 +107,7 @@ json add_task_to_user(const std::string& username, const std::string& task_name,
 
             active.push_back(task_name);
 
-            if (!save_json_to_file("tasks.json", data)) {
+            if (!save_json_to_file_atomic("data/tasks.json", data)) {
                 return {
                     {"status", "error"},
                     {"message", "failed to write tasks.json"}
@@ -129,7 +130,7 @@ json add_task_to_user(const std::string& username, const std::string& task_name,
 json remove_task_from_user(const std::string& username, const std::string& task_name, std::mutex& tasks_mutex) {
     std::lock_guard<std::mutex> lock(tasks_mutex);
 
-    json data = load_json_or_default("tasks.json", {
+    json data = load_json_or_default("data/tasks.json", {
         {"users_tasks", json::array()}
     });
 
@@ -154,7 +155,7 @@ json remove_task_from_user(const std::string& username, const std::string& task_
 
             active.erase(it);
 
-            if (!save_json_to_file("tasks.json", data)) {
+            if (!save_json_to_file_atomic("data/tasks.json", data)) {
                 return {
                     {"status", "error"},
                     {"message", "failed to write tasks.json"}
@@ -177,7 +178,7 @@ json remove_task_from_user(const std::string& username, const std::string& task_
 json execute_task_for_user(const std::string& username, const std::string& task_name, std::mutex& tasks_mutex) {
     std::lock_guard<std::mutex> lock(tasks_mutex);
 
-    json data = load_json_or_default("tasks.json", {
+    json data = load_json_or_default("data/tasks.json", {
         {"users_tasks", json::array()}
     });
 
@@ -214,7 +215,7 @@ json execute_task_for_user(const std::string& username, const std::string& task_
 json assign_task_to_user(const std::string& target_username, const std::string& task_name, std::mutex& tasks_mutex) {
     std::lock_guard<std::mutex> lock(tasks_mutex);
 
-    json data = load_json_or_default("tasks.json", {
+    json data = load_json_or_default("data/tasks.json", {
         {"users_tasks", json::array()}
     });
 
@@ -240,7 +241,7 @@ json assign_task_to_user(const std::string& target_username, const std::string& 
 
             available.push_back(task_name);
 
-            if (!save_json_to_file("tasks.json", data)) {
+            if (!save_json_to_file_atomic("data/tasks.json", data)) {
                 return {
                     {"status", "error"},
                     {"message", "failed to write tasks.json"}
@@ -258,4 +259,25 @@ json assign_task_to_user(const std::string& target_username, const std::string& 
         {"status", "error"},
         {"message", "target user not found in tasks.json"}
     };
+}
+
+int count_total_active_tasks(std::mutex& tasks_mutex) {
+    std::lock_guard<std::mutex> lock(tasks_mutex);
+
+    json data = load_json_or_default("data/tasks.json", {
+        {"users_tasks", json::array()}
+    });
+
+    if (!data.contains("users_tasks") || !data["users_tasks"].is_array()) {
+        return 0;
+    }
+
+    int total = 0;
+    for (const auto& entry : data["users_tasks"]) {
+        if (entry.contains("active_tasks") && entry["active_tasks"].is_array()) {
+            total += static_cast<int>(entry["active_tasks"].size());
+        }
+    }
+
+    return total;
 }

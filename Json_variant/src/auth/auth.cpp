@@ -1,16 +1,16 @@
-#include "auth.hpp"
-#include "json_utils.hpp"
 #include <cctype>
 #include <iomanip>
 #include <sstream>
 #include <openssl/sha.h>
+#include "auth/auth.hpp"
+#include "common/json_utils.hpp"
 
 namespace {
 
 json ensure_tasks_entry_exists(const std::string& username, std::mutex& tasks_mutex) {
     std::lock_guard<std::mutex> lock(tasks_mutex);
 
-    json data = load_json_or_default("tasks.json", {
+    json data = load_json_or_default("data/tasks.json", {
         {"users_tasks", json::array()}
     });
 
@@ -19,7 +19,7 @@ json ensure_tasks_entry_exists(const std::string& username, std::mutex& tasks_mu
     }
 
     for (const auto& entry : data["users_tasks"]) {
-        if (entry.contains("username") && entry["username"] == username) {
+        if (entry.value("username", "") == username) {
             return {
                 {"status", "ok"},
                 {"message", "tasks entry already exists"}
@@ -37,7 +37,7 @@ json ensure_tasks_entry_exists(const std::string& username, std::mutex& tasks_mu
         {"active_tasks", json::array()}
     });
 
-    if (!save_json_to_file("tasks.json", data)) {
+    if (!save_json_to_file_atomic("data/tasks.json", data)) {
         return {
             {"status", "error"},
             {"message", "failed to initialize tasks.json"}
@@ -85,12 +85,18 @@ bool is_valid_password(const std::string& password, std::string& error_message) 
 
 std::string hash_password_sha256(const std::string& password) {
     unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256(reinterpret_cast<const unsigned char*>(password.c_str()),
-           password.size(), hash);
+
+    SHA256(
+        reinterpret_cast<const unsigned char*>(password.c_str()),
+        password.size(),
+        hash
+    );
 
     std::ostringstream oss;
     for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i) {
-        oss << std::hex << std::setw(2) << std::setfill('0')
+        oss << std::hex
+            << std::setw(2)
+            << std::setfill('0')
             << static_cast<int>(hash[i]);
     }
 
@@ -100,7 +106,7 @@ std::string hash_password_sha256(const std::string& password) {
 json ensure_admin_exists(std::mutex& users_mutex) {
     std::lock_guard<std::mutex> lock(users_mutex);
 
-    json data = load_json_or_default("users.json", {
+    json data = load_json_or_default("data/users.json", {
         {"users", json::array()}
     });
 
@@ -109,7 +115,7 @@ json ensure_admin_exists(std::mutex& users_mutex) {
     }
 
     for (const auto& user : data["users"]) {
-        if (user.contains("username") && user["username"] == "admin") {
+        if (user.value("username", "") == "admin") {
             return {
                 {"status", "ok"},
                 {"message", "admin already exists"}
@@ -123,7 +129,7 @@ json ensure_admin_exists(std::mutex& users_mutex) {
         {"role", "admin"}
     });
 
-    if (!save_json_to_file("users.json", data)) {
+    if (!save_json_to_file_atomic("data/users.json", data)) {
         return {
             {"status", "error"},
             {"message", "failed to write users.json"}
@@ -132,14 +138,14 @@ json ensure_admin_exists(std::mutex& users_mutex) {
 
     return {
         {"status", "ok"},
-        {"message", "default admin created (username: admin, password: Admin123)"}
+        {"message", "default admin created"}
     };
 }
 
 bool is_admin_user(const std::string& username, std::mutex& users_mutex) {
     std::lock_guard<std::mutex> lock(users_mutex);
 
-    json data = load_json_or_default("users.json", {
+    json data = load_json_or_default("data/users.json", {
         {"users", json::array()}
     });
 
@@ -157,8 +163,12 @@ bool is_admin_user(const std::string& username, std::mutex& users_mutex) {
     return false;
 }
 
-json register_user(const std::string& username, const std::string& password,
-                   std::mutex& users_mutex, std::mutex& tasks_mutex) {
+json register_user(
+    const std::string& username,
+    const std::string& password,
+    std::mutex& users_mutex,
+    std::mutex& tasks_mutex
+) {
     std::string password_error;
     if (!is_valid_password(password, password_error)) {
         return {
@@ -170,7 +180,7 @@ json register_user(const std::string& username, const std::string& password,
     {
         std::lock_guard<std::mutex> lock(users_mutex);
 
-        json data = load_json_or_default("users.json", {
+        json data = load_json_or_default("data/users.json", {
             {"users", json::array()}
         });
 
@@ -193,7 +203,7 @@ json register_user(const std::string& username, const std::string& password,
             {"role", "user"}
         });
 
-        if (!save_json_to_file("users.json", data)) {
+        if (!save_json_to_file_atomic("data/users.json", data)) {
             return {
                 {"status", "error"},
                 {"message", "failed to write users.json"}
@@ -201,9 +211,9 @@ json register_user(const std::string& username, const std::string& password,
         }
     }
 
-    json task_init_result = ensure_tasks_entry_exists(username, tasks_mutex);
-    if (task_init_result["status"] == "error") {
-        return task_init_result;
+    json init_result = ensure_tasks_entry_exists(username, tasks_mutex);
+    if (init_result["status"] == "error") {
+        return init_result;
     }
 
     return {
@@ -212,11 +222,23 @@ json register_user(const std::string& username, const std::string& password,
     };
 }
 
-json login_user(const std::string& username, const std::string& password,
-                std::mutex& users_mutex) {
+json login_user(
+    const std::string& username,
+    const std::string& password,
+    std::mutex& users_mutex,
+    RateLimiter& rate_limiter
+) {
+    std::string limit_message;
+    if (!rate_limiter.can_attempt_login(username, limit_message)) {
+        return {
+            {"status", "error"},
+            {"message", limit_message}
+        };
+    }
+
     std::lock_guard<std::mutex> lock(users_mutex);
 
-    json data = load_json_or_default("users.json", {
+    json data = load_json_or_default("data/users.json", {
         {"users", json::array()}
     });
 
@@ -232,6 +254,8 @@ json login_user(const std::string& username, const std::string& password,
     for (const auto& user : data["users"]) {
         if (user.value("username", "") == username &&
             user.value("password_hash", "") == input_hash) {
+            rate_limiter.reset_attempts(username);
+
             return {
                 {"status", "ok"},
                 {"message", "login successful"},
@@ -239,6 +263,8 @@ json login_user(const std::string& username, const std::string& password,
             };
         }
     }
+
+    rate_limiter.record_failed_attempt(username);
 
     return {
         {"status", "error"},
@@ -249,7 +275,7 @@ json login_user(const std::string& username, const std::string& password,
 json list_users(std::mutex& users_mutex) {
     std::lock_guard<std::mutex> lock(users_mutex);
 
-    json data = load_json_or_default("users.json", {
+    json data = load_json_or_default("data/users.json", {
         {"users", json::array()}
     });
 
@@ -260,10 +286,10 @@ json list_users(std::mutex& users_mutex) {
         };
     }
 
-    json users_list = json::array();
+    json users = json::array();
 
     for (const auto& user : data["users"]) {
-        users_list.push_back({
+        users.push_back({
             {"username", user.value("username", "")},
             {"role", user.value("role", "user")}
         });
@@ -271,6 +297,20 @@ json list_users(std::mutex& users_mutex) {
 
     return {
         {"status", "ok"},
-        {"users", users_list}
+        {"users", users}
     };
+}
+
+int count_registered_users(std::mutex& users_mutex) {
+    std::lock_guard<std::mutex> lock(users_mutex);
+
+    json data = load_json_or_default("data/users.json", {
+        {"users", json::array()}
+    });
+
+    if (!data.contains("users") || !data["users"].is_array()) {
+        return 0;
+    }
+
+    return static_cast<int>(data["users"].size());
 }

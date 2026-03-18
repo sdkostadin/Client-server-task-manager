@@ -1,0 +1,9 @@
+{
+    "port": 8080,
+    "backlog": 16,
+    "log_file": "logs/server.log",
+    "login_max_attempts": 5,
+    "login_block_seconds": 30,
+    "accept_poll_timeout_ms": 1000,
+    "shutdown_drain_seconds": 5
+}

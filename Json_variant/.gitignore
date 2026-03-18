@@ -1,0 +1,33 @@
+# binaries
+server
+client
+*.out
+*.exe
+
+# object files
+*.o
+*.obj
+
+build/
+bin/
+
+# logs
+logs/*.log
+
+# temporary files
+*.tmp
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# future databases
+*.db
+*.sqlite
+*.sqlite3

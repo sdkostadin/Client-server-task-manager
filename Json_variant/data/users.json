@@ -1,0 +1,19 @@
+{
+    "users": [
+        {
+            "password_hash": "3b612c75a7b5048a435fb6ec81e52ff92d6d795a8b5a9c17070f6a63c97a53b2",
+            "role": "admin",
+            "username": "admin"
+        },
+        {
+            "password_hash": "3f21a8490cef2bfb60a9702e9d2ddb7a805c9bd1a263557dfd51a7d0e9dfa93e",
+            "role": "user",
+            "username": "ivan"
+        },
+        {
+            "password_hash": "ec004ef0da5bde09ed611533bdd9ccaf041514be632814ba1303f6725eedff7b",
+            "role": "user",
+            "username": "petra"
+        }
+    ]
+}

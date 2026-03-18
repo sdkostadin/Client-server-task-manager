@@ -2,6 +2,7 @@
 #include <string>
 #include <mutex>
 #include <nlohmann/json.hpp>
+#include "security/rate_limiter.hpp"
 
 using json = nlohmann::json;
 
@@ -15,6 +16,7 @@ json register_user(const std::string& username, const std::string& password,
                    std::mutex& users_mutex, std::mutex& tasks_mutex);
 
 json login_user(const std::string& username, const std::string& password,
-                std::mutex& users_mutex);
+                std::mutex& users_mutex, RateLimiter& rate_limiter);
 
 json list_users(std::mutex& users_mutex);
+int count_registered_users(std::mutex& users_mutex);
