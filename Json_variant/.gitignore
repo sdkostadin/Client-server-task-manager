@@ -1,6 +1,6 @@
 # binaries
-server
-client
+#server
+#client
 *.out
 *.exe
 
